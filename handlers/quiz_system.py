@@ -7,6 +7,7 @@ from aiogram.types import ReplyKeyboardRemove
 from main import add_proxy_data
 from aiogram.types.input_file import InputFile
 import data_base
+from aiogram.dispatcher.filters import Text
 
 
 # --- create quiz ---
@@ -58,11 +59,58 @@ async def create_quiz_questions_state(message: types.Message, state: FSMContext)
     questions_without_spaces = list(map(str.strip, questions_list))
     clean_questions = list(filter(None, questions_without_spaces))
     # questions list without empty elements
-    await message.reply(str(clean_questions), reply=False)
+    # await message.reply(str(clean_questions), reply=False)
     quiz = data_base.create_quiz(await state.get_data())
     for q in clean_questions:
         data_base.create_question({'question': q, 'quiz_id': quiz})
     await message.reply('Опрос успешно добавлен!', reply=False)
     await state.finish()
+
+# --- my quiz ---
+
+
+@dp.message_handler(commands=['my_quiz'])
+async def my_quiz_command(message: types.Message):
+    my_quiz = data_base.get_my_quiz(message.from_user.id)
+    for q in my_quiz:
+        current_questions = str(data_base.get_quiz_questions(q.id)).replace('[', '')\
+        .replace(']', '').replace("'", '')
+        description = q.description or 'Без описания'
+        send_msg = await bot.send_message(message.from_user.id,
+                                       f'{q.title}\n{description}\nСсылка: {q.link}\n'
+                                       f'Вопросы:\n{current_questions}',
+                                       parse_mode="HTML")
+        send_msg_id = send_msg.message_id
+        await send_msg.edit_reply_markup(reply_markup=await inline.quiz_inline_keyboard(q, send_msg_id))
+
+
+@dp.callback_query_handler(Text(startswith='del'))
+async def delete_handler(callback: types.CallbackQuery):
+    if callback.data.startswith('del_confirm_quiz'):
+        data = callback.data.replace('del_confirm_quiz ', '').split(':')
+        msg_id = data[0]
+        quiz_id = data[1]
+        await bot.edit_message_reply_markup(callback.message.chat.id,
+                                            msg_id,
+                                            reply_markup=inline.confirm_deletion_quiz(quiz_id ,msg_id))
+    elif callback.data.startswith('del_quiz_true'):
+        quiz_id = int(callback.data.replace('del_quiz_true ', ''))
+        quiz_title = data_base.get_quiz(quiz_id).title
+        await bot.send_message(callback.message.chat.id, f'Опрос "{quiz_title}" удален!')
+        data_base.delete_quiz(quiz_id)
+        await inline.delete_inline_keyboard(callback.message)
+        await callback.answer()
+    elif callback.data.startswith('del_quiz_false'):
+        data = callback.data.replace('del_quiz_false ', '').split(':')
+        msg_id = int(data[0])
+        quiz_id = int(data[1])
+        quiz = data_base.get_quiz(quiz_id)
+        await bot.edit_message_reply_markup(callback.message.chat.id,
+                                            msg_id,
+                                            reply_markup=await inline.quiz_inline_keyboard(quiz, msg_id))
+        await callback.answer()
+
+
+
 
 

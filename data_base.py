@@ -78,6 +78,11 @@ def get_quiz(id):
     return quiz
 
 
+def get_my_quiz(user_id):
+    my_quiz = session.query(Quiz).filter(Quiz.user_id == user_id)
+    return my_quiz
+
+
 def create_question(data: dict):
     question_obj = Question(
         question=data['question'],
@@ -95,7 +100,8 @@ def delete_question(id):
 
 def get_quiz_questions(quiz_id):
     quiz = session.query(Quiz).get(quiz_id)
-    return quiz.questions
+    questions_text = [i.question for i in quiz.questions]
+    return questions_text
 
 # delete_question(1)
 # create_question({'question': 'Сколько вам лет?', 'quiz_id': 2})
