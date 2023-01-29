@@ -30,8 +30,9 @@ def change_quiz_inline_kb(msg_id, quiz_id):
     anon = InlineKeyboardButton('Анонимность', callback_data=f'choose_change_anon {msg_id}:{quiz_id}')
     title = InlineKeyboardButton('Заголовок', callback_data=f'choose_change_title {msg_id}:{quiz_id}')
     content = InlineKeyboardButton('Описание', callback_data=f'choose_change_content {msg_id}:{quiz_id}')
+    questions = InlineKeyboardButton('Вопросы', callback_data=f'choose_change_qtns {msg_id}:{quiz_id}')
     back = InlineKeyboardButton('←Назад', callback_data=f'back_to_menu {msg_id}:{quiz_id}')
-    kb.add(anon, title, content, back)
+    kb.add(anon, title, content, questions, back)
     return kb
 
 

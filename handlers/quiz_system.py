@@ -153,6 +153,13 @@ async def choose_change_handler(callback: types.CallbackQuery):
                                parse_mode='Markdown')
         QUIZ_ID = quiz_id
         await states.ChangeQuizContent.get_new_description.set()
+    elif cb.startswith('choose_change_qtns'):
+        data = callback.data.replace('choose_change_qtns ', '').split(':')
+        quiz_id = int(data[1])
+        QUIZ_ID = quiz_id
+        await bot.send_message(callback.message.chat.id, 'Введите список новых вопров, по тем же правилам,'
+                                                         ' как вводили при создании')
+        await states.ChangeQuizQuestions.get_new_questions.set()
 
     await callback.answer()
 
@@ -174,4 +181,17 @@ async def get_new_title_state(message: types.Message, state: FSMContext):
     data_base.change_quiz_content(QUIZ_ID, new_description)
     await message.reply('Заголовок изменен!', reply=False)
     await state.finish()
+
+
+@dp.message_handler(state=states.ChangeQuizQuestions.get_new_questions)
+async def get_new_questions(message: types.Message, state: FSMContext):
+    questions_list = message.text.split(',')
+    questions_without_spaces = list(map(str.strip, questions_list))
+    clean_questions = list(filter(None, questions_without_spaces))
+    data_base.delete_all_questions(QUIZ_ID)
+    for q in clean_questions:
+        data_base.create_question({'question': q, 'quiz_id': QUIZ_ID})
+    await message.reply('Вопросы успешно изменены', reply=False)
+    await state.finish()
+
 

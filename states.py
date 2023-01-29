@@ -14,3 +14,7 @@ class ChangeQuizTitle(StatesGroup):
 
 class ChangeQuizContent(StatesGroup):
     get_new_description = State()
+
+
+class ChangeQuizQuestions(StatesGroup):
+    get_new_questions = State()

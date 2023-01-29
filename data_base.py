@@ -98,10 +98,22 @@ def delete_question(id):
     session.commit()
 
 
+def delete_all_questions(quiz_id):
+    questions = session.query(Question).filter(Question.quiz_id == quiz_id)
+    questions.delete()
+    session.commit()
+
+
 def get_quiz_questions(quiz_id):
     quiz = session.query(Quiz).get(quiz_id)
     questions_text = [i.question for i in quiz.questions]
     return questions_text
+
+
+def get_questions_objects(quiz_id):
+    quiz = session.query(Quiz).get(quiz_id)
+    questions_objects = [i for i in quiz.questions]
+    return questions_objects
 
 
 def change_quiz_anonymity(quiz_id):
