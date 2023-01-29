@@ -7,4 +7,3 @@ def choose_anonymity():
     no = KeyboardButton('Нет')
     kb.add(yes, no)
     return kb
-

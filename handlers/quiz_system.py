@@ -9,6 +9,7 @@ from aiogram.types.input_file import InputFile
 import data_base
 from aiogram.dispatcher.filters import Text
 
+QUIZ_ID = None
 
 # --- create quiz ---
 @dp.message_handler(commands=['create_quiz', 'создать_опрос'])
@@ -71,17 +72,20 @@ async def create_quiz_questions_state(message: types.Message, state: FSMContext)
 
 @dp.message_handler(commands=['my_quiz'])
 async def my_quiz_command(message: types.Message):
-    my_quiz = data_base.get_my_quiz(message.from_user.id)
-    for q in my_quiz:
-        current_questions = str(data_base.get_quiz_questions(q.id)).replace('[', '')\
-        .replace(']', '').replace("'", '')
-        description = q.description or 'Без описания'
-        send_msg = await bot.send_message(message.from_user.id,
-                                       f'{q.title}\n{description}\nСсылка: {q.link}\n'
-                                       f'Вопросы:\n{current_questions}',
-                                       parse_mode="HTML")
-        send_msg_id = send_msg.message_id
-        await send_msg.edit_reply_markup(reply_markup=await inline.quiz_inline_keyboard(q, send_msg_id))
+    my_quiz = [*data_base.get_my_quiz(message.from_user.id)]
+    if my_quiz:
+        for q in my_quiz:
+            current_questions = str(data_base.get_quiz_questions(q.id)).replace('[', '')\
+            .replace(']', '').replace("'", '')
+            description = q.description or 'Без описания'
+            send_msg = await bot.send_message(message.from_user.id,
+                                           f'{q.title}\n{description}\nСсылка: {q.link}\n'
+                                           f'Вопросы:\n{current_questions}',
+                                           parse_mode="HTML")
+            send_msg_id = send_msg.message_id
+            await send_msg.edit_reply_markup(reply_markup=await inline.quiz_inline_keyboard(q.id, send_msg_id))
+    else:
+        await bot.send_message(message.from_user.id ,'У вас нет созданных опросов!')
 
 
 @dp.callback_query_handler(Text(startswith='del'))
@@ -104,13 +108,70 @@ async def delete_handler(callback: types.CallbackQuery):
         data = callback.data.replace('del_quiz_false ', '').split(':')
         msg_id = int(data[0])
         quiz_id = int(data[1])
-        quiz = data_base.get_quiz(quiz_id)
         await bot.edit_message_reply_markup(callback.message.chat.id,
                                             msg_id,
-                                            reply_markup=await inline.quiz_inline_keyboard(quiz, msg_id))
+                                            reply_markup=await inline.quiz_inline_keyboard(quiz_id, msg_id))
         await callback.answer()
 
 
+# change quiz system
+
+@dp.callback_query_handler(Text(startswith='back_to_menu'))
+async def back_to_menu(callback: types.CallbackQuery):
+    data = callback.data.replace('back_to_menu ', '').split(':')
+    msg_id = int(data[0])
+    quiz_id = int(data[1])
+    await callback.message.edit_reply_markup(reply_markup=await inline.quiz_inline_keyboard(quiz_id, msg_id))
 
 
+@dp.callback_query_handler(Text(startswith='change_quiz'))
+async def callback_change_quiz(callback: types.CallbackQuery):
+    data = callback.data.replace('change_quiz ', '').split(':')
+    msg_id = int(data[0])
+    quiz_id = int(data[1])
+    await bot.edit_message_reply_markup(callback.message.chat.id, msg_id,
+                                        reply_markup=inline.change_quiz_inline_kb(msg_id, quiz_id))
+
+
+@dp.callback_query_handler(Text(startswith='choose_change'))
+async def choose_change_handler(callback: types.CallbackQuery):
+    global QUIZ_ID
+    cb = callback.data
+    data = cb.split(':')
+    msg_id = int(data[0].split()[1])
+    quiz_id = int(data[1])
+    if cb.startswith('choose_change_anon'):
+        new_state = data_base.change_quiz_anonymity(quiz_id)
+        await bot.send_message(callback.message.chat.id, f'Статус опроса изменен на {new_state}')
+    elif cb.startswith('choose_change_title'):
+        await bot.send_message(callback.message.chat.id, 'Введите новый заголовок опроса')
+        QUIZ_ID = quiz_id
+        await states.ChangeQuizTitle.get_new_title.set()
+    elif cb.startswith('choose_change_content'):
+        await bot.send_message(callback.message.chat.id, 'Введите описание опроса.\n'
+                                                         'Если не хотите его убрать, напишите слово *удалить*',
+                               parse_mode='Markdown')
+        QUIZ_ID = quiz_id
+        await states.ChangeQuizContent.get_new_description.set()
+
+    await callback.answer()
+
+
+@dp.message_handler(state=states.ChangeQuizTitle.get_new_title)
+async def get_new_title_state(message: types.Message, state: FSMContext):
+    new_title = message.text
+    data_base.change_quiz_title(QUIZ_ID, new_title)
+    await message.reply('Заголовок изменен!', reply=False)
+    await state.finish()
+
+
+@dp.message_handler(state=states.ChangeQuizContent.get_new_description)
+async def get_new_title_state(message: types.Message, state: FSMContext):
+    if message.text.lower() == 'удалить':
+        new_description = None
+    else:
+        new_description = message.text
+    data_base.change_quiz_content(QUIZ_ID, new_description)
+    await message.reply('Заголовок изменен!', reply=False)
+    await state.finish()
 

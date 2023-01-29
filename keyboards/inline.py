@@ -8,10 +8,10 @@ async def delete_inline_keyboard(message):
                                         reply_markup=None)
 
 
-async def quiz_inline_keyboard(quiz, msg_id):
+async def quiz_inline_keyboard(quiz_id, msg_id):
     kb = InlineKeyboardMarkup(row_width=2)
-    change = InlineKeyboardButton('Изменить(в разработке)', callback_data='ok')
-    delete = InlineKeyboardButton('Удалить', callback_data=f'del_confirm_quiz {msg_id}:{quiz.id}')
+    change = InlineKeyboardButton('Редактировать', callback_data=f'change_quiz {msg_id}:{quiz_id}')
+    delete = InlineKeyboardButton('Удалить', callback_data=f'del_confirm_quiz {msg_id}:{quiz_id}')
     results = InlineKeyboardButton('Результаты(в разработке)', callback_data='ok')
     kb.add(change, delete, results)
     return kb
@@ -23,4 +23,16 @@ def confirm_deletion_quiz(quiz_id, msg_id):
     no = InlineKeyboardButton('Отменить удаление', callback_data=f'del_quiz_false {msg_id}:{quiz_id}')
     kb.add(yes, no)
     return kb
+
+
+def change_quiz_inline_kb(msg_id, quiz_id):
+    kb = InlineKeyboardMarkup(row_width=2)
+    anon = InlineKeyboardButton('Анонимность', callback_data=f'choose_change_anon {msg_id}:{quiz_id}')
+    title = InlineKeyboardButton('Заголовок', callback_data=f'choose_change_title {msg_id}:{quiz_id}')
+    content = InlineKeyboardButton('Описание', callback_data=f'choose_change_content {msg_id}:{quiz_id}')
+    back = InlineKeyboardButton('←Назад', callback_data=f'back_to_menu {msg_id}:{quiz_id}')
+    kb.add(anon, title, content, back)
+    return kb
+
+
 

@@ -103,11 +103,34 @@ def get_quiz_questions(quiz_id):
     questions_text = [i.question for i in quiz.questions]
     return questions_text
 
-# delete_question(1)
-# create_question({'question': 'Сколько вам лет?', 'quiz_id': 2})
-# create_question({'question': 'В каком городе живете?', 'quiz_id': 2})
-# create_question({'question': 'Ваш адресс', 'quiz_id': 2})
-get_quiz(2)
-# create_quiz({'title': 'Test', 'description': 'It\'s a test'})
+
+def change_quiz_anonymity(quiz_id):
+    '''
+    :param quiz_id:
+    :return: str value for string
+    '''
+
+    quiz = get_quiz(quiz_id)
+    status = quiz.is_anonymous
+    if status:
+        quiz.is_anonymous = False
+        session.commit()
+        return 'не анонимный'
+    else:
+        quiz.is_anonymous = True
+        session.commit()
+        return 'анонимный'
+
+
+def change_quiz_title(quiz_id, new_title):
+    quiz = get_quiz(quiz_id)
+    quiz.title = new_title
+    session.commit()
+
+
+def change_quiz_content(quiz_id, new_description):
+    quiz = get_quiz(quiz_id)
+    quiz.description = new_description
+    session.commit()
 
 
