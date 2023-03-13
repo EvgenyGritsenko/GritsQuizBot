@@ -66,6 +66,14 @@ Base.metadata.create_all(engine)
 
 # -------------- functions --------------
 
+
+def count_users_and_answers(quiz_id):
+    users = session.query(Answer.user_id).filter(Answer.quiz_id == quiz_id)
+    answers_count = len([*users])
+    user_count = len(set(users))
+    return answers_count, user_count
+
+
 def answers_by_question_id(q_id):
     answers = session.query(Answer).filter(Answer.question_id == q_id)
     return answers

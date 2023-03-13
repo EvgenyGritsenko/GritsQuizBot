@@ -239,8 +239,9 @@ async def quiz_results(callback: types.CallbackQuery):
     quiz = data_base.get_quiz(quiz_id)
     answers = data_base.answers_by_quiz_id(quiz_id)
     number_of_answers = len([*answers])
+    count_users = data_base.count_users_and_answers(quiz_id)
     await bot.send_message(callback.message.chat.id, f'{quiz.title}, ссылка: {quiz.link} \n'
-                                                     f'Опрос прошли {number_of_answers} раз.\n'
+                                                     f'Опрос прошли {count_users[0]} раз(а), {count_users[1]} человек\n'
                                                      f'Подробная информация и ответы доступны в файле, который сейчас'
                                                      f' вам отправит бот.')
     await callback.answer('Результаты скоро придут в виде файла')
