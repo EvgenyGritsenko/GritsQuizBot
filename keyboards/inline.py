@@ -2,6 +2,18 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from connection_bot import bot
 
 
+async def help_inline_keyboard():
+    kb = InlineKeyboardMarkup(row_width=1)
+    answer_questions = InlineKeyboardButton('Как мне пройти опрос?',
+                                            callback_data='help_answer_questions')
+    create_quiz = InlineKeyboardButton('Как мне создать опрос?',
+                                       callback_data='help_create_quiz')
+    my_quiz = InlineKeyboardButton('Как мне получить ответы, удалить мой опрос?',
+                                   callback_data='help_my_quiz')
+    kb.add(answer_questions, create_quiz, my_quiz)
+    return kb
+
+
 async def delete_inline_keyboard(message):
     await bot.edit_message_reply_markup(chat_id=message.chat.id,
                                         message_id=message.message_id,
@@ -12,7 +24,7 @@ async def quiz_inline_keyboard(quiz_id, msg_id):
     kb = InlineKeyboardMarkup(row_width=2)
     change = InlineKeyboardButton('Редактировать', callback_data=f'change_quiz {msg_id}:{quiz_id}')
     delete = InlineKeyboardButton('Удалить', callback_data=f'del_confirm_quiz {msg_id}:{quiz_id}')
-    results = InlineKeyboardButton('Результаты(в разработке)', callback_data='ok')
+    results = InlineKeyboardButton('Результаты', callback_data=f'results:{quiz_id}')
     kb.add(change, delete, results)
     return kb
 

@@ -1,3 +1,5 @@
+import os.path
+
 from aiogram.dispatcher import FSMContext
 from connection_bot import bot, dp
 from aiogram import types
@@ -8,8 +10,44 @@ from main import add_proxy_data
 from aiogram.types.input_file import InputFile
 import data_base
 from aiogram.dispatcher.filters import Text
+import pandas as pd
+from aiogram.types import InputFile
 
 QUIZ_ID = None
+
+
+def delete_forbidden_symbols(name):
+    removed_chars = ['[', ']', ':', '*', '?', '/', '\\', '{', '}',
+                     '|', '<', '>']
+    correctly_name = ''.join(i for i in name if i not in removed_chars)
+    return correctly_name
+
+
+def packing_data_for_excel(questions_id, quiz, number_of_answers, sheets):
+    print(quiz.is_anonymous)
+    for q in questions_id:
+        for x in range(number_of_answers):
+            if not quiz.is_anonymous:
+                current_answers = [i.answer for i in data_base.answers_by_question_id(q)]
+                current_usernames = [i.username for i in data_base.answers_by_question_id(q)]
+                current_users_id = [i.user_id for i in data_base.answers_by_question_id(q)]
+                current_times = [i.time.strftime('%m/%d/%Y, %H:%M:%S') for i in data_base.answers_by_question_id(q)]
+                question = data_base.get_one_question(q)
+                df = pd.DataFrame({'Ответ': current_answers,
+                                   'Имя пользователя': current_usernames,
+                                   'ID пользователя': current_users_id,
+                                   'Время ответа': current_times})
+                sheets[question] = []
+                sheets[question].append(df)
+            else:
+                current_answers = [i.answer for i in data_base.answers_by_question_id(q)]
+                current_times = [i.time.strftime('%m/%d/%Y, %H:%M:%S') for i in data_base.answers_by_question_id(q)]
+                question = data_base.get_one_question(q)
+                df = pd.DataFrame({'Ответ': current_answers,
+                                   'Время ответа': current_times})
+                sheets[question] = []
+                sheets[question].append(df)
+
 
 # --- create quiz ---
 @dp.message_handler(commands=['create_quiz', 'создать_опрос'])
@@ -50,6 +88,7 @@ async def create_quiz_description_state(message: types.Message, state: FSMContex
         await bot.send_photo(message.from_user.id, photo,
                                    'Теперь через запятую введите '
                                    'вопросы для опроса. Пример на фото')
+    await bot.send_message(message.chat.id, 'Предупреждение: максимальное количество вопросов - 20')
     await states.CreateQuizStates.next()
 
 
@@ -58,9 +97,7 @@ async def create_quiz_questions_state(message: types.Message, state: FSMContext)
     await add_proxy_data(state, {'user_id': message.from_user.id})
     questions_list = message.text.split(',')
     questions_without_spaces = list(map(str.strip, questions_list))
-    clean_questions = list(filter(None, questions_without_spaces))
-    # questions list without empty elements
-    # await message.reply(str(clean_questions), reply=False)
+    clean_questions = list(filter(None, questions_without_spaces))[:20]
     quiz = data_base.create_quiz(await state.get_data())
     for q in clean_questions:
         data_base.create_question({'question': q, 'quiz_id': quiz})
@@ -80,12 +117,12 @@ async def my_quiz_command(message: types.Message):
             description = q.description or 'Без описания'
             send_msg = await bot.send_message(message.from_user.id,
                                            f'{q.title}\n{description}\nСсылка: {q.link}\n'
-                                           f'Вопросы:\n{current_questions}',
+                                           f'Вопросы: ⬇\n{current_questions}',
                                            parse_mode="HTML")
             send_msg_id = send_msg.message_id
             await send_msg.edit_reply_markup(reply_markup=await inline.quiz_inline_keyboard(q.id, send_msg_id))
     else:
-        await bot.send_message(message.from_user.id ,'У вас нет созданных опросов!')
+        await bot.send_message(message.from_user.id, 'У вас нет созданных опросов!')
 
 
 @dp.callback_query_handler(Text(startswith='del'))
@@ -193,5 +230,42 @@ async def get_new_questions(message: types.Message, state: FSMContext):
         data_base.create_question({'question': q, 'quiz_id': QUIZ_ID})
     await message.reply('Вопросы успешно изменены', reply=False)
     await state.finish()
+
+
+@dp.callback_query_handler(Text(startswith='results'))
+async def quiz_results(callback: types.CallbackQuery):
+    data = callback.data.split(':')
+    quiz_id = int(data[1])
+    quiz = data_base.get_quiz(quiz_id)
+    answers = data_base.answers_by_quiz_id(quiz_id)
+    number_of_answers = len([*answers])
+    await bot.send_message(callback.message.chat.id, f'{quiz.title}, ссылка: {quiz.link} \n'
+                                                     f'Опрос прошли {number_of_answers} раз.\n'
+                                                     f'Подробная информация и ответы доступны в файле, который сейчас'
+                                                     f' вам отправит бот.')
+    await callback.answer('Результаты скоро придут в виде файла')
+    # sending xlsx file
+    quiz_questions = data_base.get_questions_objects_by_id(quiz_id)
+    questions_id = [i.id for i in quiz_questions]
+    sheets = {}
+    packing_data_for_excel(questions_id, quiz, number_of_answers, sheets)
+    clear_title = delete_forbidden_symbols(quiz.title)
+
+    # удаляем файл, если с таким именем уже есть
+    path = f'user_files/{clear_title}{quiz.link}.xlsx'
+    if os.path.isfile(path):
+        os.remove(path)
+
+    writer = pd.ExcelWriter(f'user_files/{clear_title}{quiz.link}.xlsx', engine='xlsxwriter')
+    for k, v in sheets.items():
+        for j in v:
+            j.to_excel(writer, sheet_name=delete_forbidden_symbols(k), index=False)
+    writer.save()
+    try:
+        file = InputFile(f'user_files/{clear_title}{quiz.link}.xlsx')
+        await bot.send_document(callback.message.chat.id, file,
+                                caption='Предупреждение: ответы на вопросы разделены по листам')
+    except FileNotFoundError:
+        await bot.send_message(callback.message.chat.id, 'Ошибка. Не удалось отправить файл.')
 
 

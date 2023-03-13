@@ -1,4 +1,5 @@
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.utils.helper import Helper, HelperMode, ListItem
 
 
 class CreateQuizStates(StatesGroup):
@@ -18,3 +19,13 @@ class ChangeQuizContent(StatesGroup):
 
 class ChangeQuizQuestions(StatesGroup):
     get_new_questions = State()
+
+
+class AnswerQuestion(StatesGroup):
+    get_quiz_id = State()
+
+
+class PassingQuiz(StatesGroup):
+    start = State()
+    answer_the_questions = State()
+
